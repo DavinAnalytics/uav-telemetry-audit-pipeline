@@ -78,7 +78,7 @@ Run these commands in PowerShell:
 
 ```powershell
 # 1. Clone the repository
-git clone [https://github.com/DavinAnalytics/uav-telemetry-audit-pipeline.git](https://github.com/DavinAnalytics/uav-telemetry-audit-pipeline.git)
+git clone https://github.com/DavinAnalytics/uav-telemetry-audit-pipeline.git
 cd uav-telemetry-audit-pipeline
 
 # 2. Set up the Conda environment
