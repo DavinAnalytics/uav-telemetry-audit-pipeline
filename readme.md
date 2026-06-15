@@ -78,7 +78,7 @@ To run the pipeline and dashboard locally, execute these commands in PowerShell 
 
 powershell
 # 1. Clone the repository
-git clone [https://github.com/DavinAnalytics/uav-telemetry-pipeline.git](https://github.com/DavinAnalytics/uav-telemetry-pipeline.git)
+git clone [https://github.com/DavinAnalytics/uav-telemetry-audit-pipeline.git](https://github.com/DavinAnalytics/uav-telemetry-audit-pipeline.git)
 cd uav-telemetry-pipeline
 
 # 2. Set up the Conda environment
