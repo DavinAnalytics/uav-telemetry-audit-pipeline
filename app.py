@@ -1,93 +1,217 @@
-# Actionable Triage Diagnostics App for Fleet Operations & Service Teams
 import streamlit as st
 import pandas as pd
-import numpy as np
+import altair as alt
 
-# Set dashboard layout configuration
-st.set_page_config(layout="wide", page_title="Field AI Flight Telemetry Audit")
+# --- PAGE CONFIGURATION ---
+st.set_page_config(
+    page_title="Fleet Telemetry Triage Room",
+    page_icon="🛸",
+    layout="wide",
+)
 
 DATA_PATH = "data/fusion_data_sanitized.csv"
 
 @st.cache_data
-def load_and_downsample_telemetry(file_path):
-    df = pd.read_csv(file_path)
+def load_data():
+    """Loads sanitized time-series flight telemetry and engineers initial bucket partitions."""
+    df = pd.read_csv(DATA_PATH)
+    # Group raw high-frequency 20Hz ticks into discrete 1-second buckets
+    df["second_bucket"] = (df["timestamp"] // 1000000).astype(int)
+    # Format algorithmic labels into clean presentation titles
+    df["fault_label"] = (
+        df["operational_status"]
+        .str.replace(r"^\d+_", "", regex=True)
+        .str.replace("_", " ")
+        .str.title()
+    )
+    return df
+
+# Initialize Data Cache
+df = load_data()
+
+
+# ==============================================================================
+# PHASE 1: STEP-AHEAD STATE ENGINE & DATA AGGREGATION
+# ==============================================================================
+
+# Extract unique fault categories available for structural filtering
+fault_options = sorted(df["fault_label"].unique())
+
+# Setup persistent session states for filter memory
+if "selected_faults" not in st.session_state:
+    st.session_state.selected_faults = fault_options
+
+# Apply active sidebar filter to the raw data frame
+filtered = df[df["fault_label"].isin(st.session_state.selected_faults)] if st.session_state.selected_faults else df.iloc[:0]
+
+if not filtered.empty:
+    # Kinematic Downsampling Layer: Aggregate to 1-second chunks
+    # CRITICAL: ErrRP uses mean to catch drift; total_kinetic_shock_g MUST use max to preserve impact trauma
+    agg_df = (
+        filtered.groupby("second_bucket")
+        .agg(
+            {
+                "ErrRP": "mean",
+                "total_kinetic_shock_g": "max",  
+                "fault_label": "first",
+            }
+        )
+        .reset_index()
+    )
+else:
+    agg_df = pd.DataFrame(columns=["second_bucket", "ErrRP", "total_kinetic_shock_g", "fault_label"])
+
+
+# ==============================================================================
+# PHASE 2: SIDEBAR CONTROL ROOM INTERFACE
+# ==============================================================================
+with st.sidebar:
+    st.subheader("🚨 Incident Triage Control Room")
     
-    # Create a 1-second human-scale grouping key by converting timestamps to nearest whole second
-    # Assuming timestamps increment roughly by 50,000 units (microseconds or scaled steps)
-    df['second_bucket'] = (df['timestamp'] // 1000000).astype(int)
+    # Synchronized Triage Metric: Counts unique consolidated seconds where a failure mode was active
+    total_anomalous_seconds = int((agg_df["fault_label"] != "Normal Flight").sum())
+    st.metric(label="Flagged Anomaly Ticks (Seconds)", value=f"{total_anomalous_seconds}")
     
-    # Aggregate data to human scale
-    downsampled = df.groupby('second_bucket').agg({
-        'timestamp': 'first',
-        'operational_status': 'first',
-        'labels': 'first',
-        'ErrRP': 'mean',         # Average attitude control tracking error
-        'ErrYaw': 'mean',        # Average compass heading tracking error
-        'total_kinetic_shock_g': 'max' # Capture peak mechanical shock event per second
-    }).reset_index(drop=True)
+    st.markdown("---")
+    st.subheader("Configure Triage Ticket")
     
-    return downsampled
+    ticket_priority = st.selectbox(
+        "Set Operational Priority:",
+        options=[
+            "High (Immediate Physical Teardown)", 
+            "Medium (Field Inspection Required)", 
+            "Low (Software Drift Monitoring)"
+        ]
+    )
+    
+    ops_reviewed = st.checkbox("Mark Flight Leg as Reviewed by Ops")
+    tech_notes = st.text_area("Technician Maintenance Notes:", placeholder="Enter localized structural or component notes here...")
+    
+    if st.button("Commit Triage Actions to Fleet Log", use_container_width=True):
+        st.success("Triage Status Successfully Dispatched!")
+        st.info(f"**Priority:** {ticket_priority}\n\n**Ops Status:** {'Reviewed' if ops_reviewed else 'Pending'}\n\n**Notes:** {tech_notes}")
 
-# Initialize our human-scale flight dataset
-flight_df = load_and_downsample_telemetry(DATA_PATH)
-
-st.title("🛸 UAV Mission Reliability Testing & Telemetry Audit")
-st.caption("Field AI Service Organization — High-Frequency Sensor Stream Triage Utility")
-
-# --- SIDEBAR: ACTIONABLE TRIAGE INPUTS ---
-st.sidebar.header("🚨 Incident Triage Control Room")
-
-# Calculate global flight metrics for operator situational awareness
-total_anomalies = int((flight_df['labels'] > 0).sum())
-st.sidebar.metric(label="Flagged Anomaly Ticks", value=total_anomalies)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("Configure Triage Ticket")
-
-# Actionable Input 1: Change ticket operational priority
-ticket_priority = st.sidebar.selectbox(
-    "Set Operational Priority:",
-    options=["High (Immediate Physical Teardown)", "Medium (Field Inspection Required)", "Low (Software Drift Monitoring)"]
-)
-
-# Actionable Input 2: State engine checkbox to acknowledge review status
-ops_reviewed = st.sidebar.checkbox("Mark Flight Leg as Reviewed by Ops")
-
-# Actionable Input 3: Log internal technician notes
-tech_notes = st.sidebar.text_area("Technician Maintenance Notes:", placeholder="Enter localized structural or component notes here...")
-
-# Submission button to print active triage state
-if st.sidebar.button("Commit Triage Actions to Fleet Log"):
-    st.sidebar.success("Triage Status Successfully Dispatched!")
-    st.sidebar.info(f"Priority: {ticket_priority}\n\nReviewed: {ops_reviewed}\n\nNotes: {tech_notes}")
-
-# --- MAIN LAYOUT: ANALYTICAL INSPECTION LAYER ---
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    st.subheader("Operational Metrics Summary")
-    st.dataframe(
-        flight_df[['operational_status', 'ErrRP', 'total_kinetic_shock_g']]
-        .groupby('operational_status')
-        .agg({'ErrRP': 'mean', 'total_kinetic_shock_g': 'max'})
-        .rename(columns={'ErrRP': 'Avg RP Error', 'total_kinetic_shock_g': 'Peak Shock (G)'}),
-        use_container_width=True
+    st.markdown("---")
+    
+    st.multiselect("Active Fault Class Filter", fault_options, key="selected_faults")
+    
+    st.link_button(
+        "View Source Code on GitHub",
+        "https://github.com/DavinAnalytics/uav-telemetry-audit-pipeline",
     )
 
-with col2:
-    st.subheader("Kinematic Mission Timeline")
-    
-    # Create two sub-columns within the chart area to give each metric its own scale
-    chart_col1, chart_col2 = st.columns(2)
-    
-    with chart_col1:
-        st.caption("💥 Peak Mechanical Shock (Independent G-Scale)")
-        st.line_chart(flight_df.set_index('timestamp')['total_kinetic_shock_g'], color="#58a6ff")
-        
-    with chart_col2:
-        st.caption("🎯 Attitude Control Tracking Error (Independent Error-Scale)")
-        st.line_chart(flight_df.set_index('timestamp')['ErrRP'], color="#ff7b72")
 
-st.markdown("---")
-st.subheader("Detailed Human-Scale Telemetry Log")
-st.dataframe(flight_df, use_container_width=True)
+# ==============================================================================
+# PHASE 3: MAIN ANALYTICAL APPLICATION DISPLAY LAYER
+# ==============================================================================
+st.title("🛸 UAV Mission Reliability Testing & Telemetry Audit")
+st.caption("AI Service Organization — High-Frequency Sensor Stream Triage Utility")
+
+if filtered.empty:
+    st.warning("No fault classes selected. Adjust the sidebar filter options to load views.")
+else:
+    # --- KPI METRICS GRID ---
+    kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+    
+    with kpi_col1:
+        with st.container(border=True):
+            avg_err = filtered["ErrRP"].mean()
+            st.metric("Avg Tracking Error (ErrRP)", f"{avg_err:.4f}", 
+                      delta="Elevated Drift" if avg_err > 0.05 else None, delta_color="inverse")
+            
+    with kpi_col2:
+        with st.container(border=True):
+            max_shock = filtered["total_kinetic_shock_g"].max()
+            st.metric("Peak Impact Force", f"{max_shock:.2f} G", 
+                      delta="Critical Trauma" if max_shock > 50 else None, delta_color="inverse")
+            
+    with kpi_col3:
+        with st.container(border=True):
+            st.metric("Anomalous Flight Legs", f"{total_anomalous_seconds} secs")
+
+    # --- INDEPENDENT DUAL-AXIS TIMELINE LAYER ---
+    with st.container(border=True):
+        st.subheader("Kinematic Mission Timeline (Independent Scales)")
+        
+        # Instantiate uniform baseline chart space
+        base = alt.Chart(agg_df).encode(
+            x=alt.X("second_bucket:Q", title="Timeline (Seconds Bucket)", scale=alt.Scale(zero=False))
+        )
+        
+        # High-G Kinetic Shock Line Specification
+        shock_line = base.mark_line(color="#58a6ff").encode(
+            y=alt.Y("total_kinetic_shock_g:Q", title="Peak Shock (G)", scale=alt.Scale(domain=[0, 100])),
+            tooltip=["second_bucket", "total_kinetic_shock_g", "fault_label"]
+        )
+        
+        # Sub-Degree Closed-Loop Attitude Tracking Error Line Specification
+        err_line = base.mark_line(color="#ff7b72").encode(
+            y=alt.Y("ErrRP:Q", title="Avg Tracking Error (ErrRP)", scale=alt.Scale(zero=True)),
+            tooltip=["second_bucket", "ErrRP", "fault_label"]
+        )
+        
+        # Vertical Concatenation Layer - Forces independent axes and fills container boundaries width-wise
+        final_timeline = alt.vconcat(
+            shock_line.properties(height=180, width="container", title="💥 Peak Mechanical Shock Profile"),
+            err_line.properties(height=180, width="container", title="🎯 Attitude Tracking Error Profile")
+        ).configure_title(fontSize=14, anchor="start", color="white").resolve_scale(y="independent")
+        
+        st.altair_chart(final_timeline, use_container_width=True)
+
+    # --- SENSOR STATISTICS SUMMARY PROFILE ---
+    profile = (
+        filtered.groupby("fault_label")
+        .agg(
+            {
+                "ErrRP": ["mean", "max"],
+                "total_kinetic_shock_g": ["mean", "max"],
+                "timestamp": "count",
+            }
+        )
+        .reset_index()
+    )
+    profile.columns = [
+        "Fault class",
+        "Avg RP error",
+        "Max RP error",
+        "Avg shock (G)",
+        "Peak shock (G)",
+        "Record count",
+    ]
+
+    with st.container(border=True):
+        st.subheader("Sensor Statistics by Fault Profile Class")
+        st.dataframe(profile, hide_index=True, use_container_width=True)
+
+    # --- DISTRIBUTION PLOTS ---
+    dist_col1, dist_col2 = st.columns(2)
+
+    with dist_col1:
+        with st.container(border=True):
+            st.subheader("Avg RP Error Variance")
+            err_chart = (
+                alt.Chart(profile)
+                .mark_bar()
+                .encode(
+                    x=alt.X("Avg RP error:Q", title="Avg RP error"),
+                    y=alt.Y("Fault class:N", sort="-x", title=None),
+                    color=alt.Color("Fault class:N", legend=None, scale=alt.Scale(scheme="redblue")),
+                    tooltip=["Fault class", "Avg RP error", "Max RP error"],
+                )
+            )
+            st.altair_chart(err_chart, use_container_width=True)
+
+    with dist_col2:
+        with st.container(border=True):
+            st.subheader("Peak Vector Shock Isolation")
+            shock_chart = (
+                alt.Chart(profile)
+                .mark_bar()
+                .encode(
+                    x=alt.X("Peak shock (G):Q", title="Peak shock (G)"),
+                    y=alt.Y("Fault class:N", sort="-x", title=None),
+                    color=alt.Color("Fault class:N", legend=None, scale=alt.Scale(scheme="redblue")),
+                    tooltip=["Fault class", "Avg shock (G)", "Peak shock (G)"],
+                )
+            )
+            st.altair_chart(shock_chart, use_container_width=True)

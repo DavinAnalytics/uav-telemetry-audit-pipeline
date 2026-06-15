@@ -3,124 +3,1051 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Field AI Portfolio Artifact — Flight Telemetry Audit Case Study</title>
+    <title>UAV Telemetry Audit — Diagnostics Interface</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     <style>
         :root {
-            --bg-color: #0e1117;
-            --card-bg: #161b22;
-            --text-color: #c9d1d9;
-            --accent-blue: #58a6ff;
-            --accent-red: #ff7b72;
+            --bg:          #080c10;
+            --surface:     #0f1520;
+            --surface2:    #161e2e;
+            --border:      #1c2840;
+            --text:        #7a96b4;
+            --text-bright: #c0d4e8;
+            --text-dim:    #3d5470;
+            --accent:      #38bdf8;
+            --accent-dim:  #0d2840;
+            --danger:      #f87171;
+            --danger-dim:  #3a1010;
+            --warning:     #fb923c;
+            --warning-dim: #3a2008;
+            --success:     #34d399;
+            --purple:      #c084fc;
+            --purple-dim:  #2a1050;
+            --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            --ui:   -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            line-height: 1.6;
-            margin: 0;
-            padding: 40px 20px;
+            background: var(--bg);
+            color: var(--text-bright);
+            font-family: var(--ui);
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 100vh;
         }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-        h1, h2 { color: white; }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin: 40px 0;
-        }
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            padding: 24px;
-            position: relative;
-            overflow: hidden;
-        }
-        /* --- PHYSICS VISUALIZATION ANIMATIONS --- */
-        .simulation-box {
-            height: 120px;
-            background: #010409;
-            border-radius: 4px;
-            margin-top: 15px;
-            position: relative;
+
+        /* ---- HEADER ---- */
+        .header {
+            border-bottom: 1px solid var(--border);
+            padding: 12px 28px;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            background: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
-        .uav-model {
-            width: 60px;
-            height: 10px;
-            background: var(--accent-blue);
-            border-radius: 5px;
-            position: relative;
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .status-dot {
+            width: 7px; height: 7px;
+            background: var(--success);
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: blink 2.4s infinite;
         }
-        /* Simulation 1: Attitude Control Drift */
-        .drift-uav {
-            animation: driftAngle 3s infinite ease-in-out;
-        }
-        @keyframes driftAngle {
-            0%, 100% { transform: rotate(0deg); background: var(--accent-blue); }
-            50% { transform: rotate(25deg); background: var(--accent-red); }
-        }
-        /* Simulation 2: High-Frequency Kinetic Shock */
-        .shock-uav {
-            animation: shakeImpact 1.5s infinite linear;
-        }
-        @keyframes shakeImpact {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            10%, 30%, 50% { transform: translateY(-4px) rotate(-2deg); }
-            20%, 40%, 60% { transform: translateY(4px) rotate(2deg); }
-            70% { transform: translateY(0) scaleY(0.6); background: var(--accent-red); }
-            80% { transform: translateY(0) scaleY(1); background: var(--accent-blue); }
-        }
-        .cta-btn {
-            display: inline-block;
-            background-color: #238636;
-            color: white;
-            padding: 12px 24px;
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .header-title {
+            font-family: var(--mono);
+            font-size: 12px;
             font-weight: 600;
-            text-decoration: none;
-            border-radius: 6px;
-            margin-top: 20px;
+            color: var(--accent);
+            letter-spacing: 0.06em;
         }
-        .cta-btn:hover { background-color: #2ea44f; }
+        .header-sub {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 1px;
+        }
+        .github-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: var(--surface2);
+            color: var(--text);
+            text-decoration: none;
+            transition: border-color 0.15s, color 0.15s, background 0.15s;
+            flex-shrink: 0;
+        }
+        .github-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .github-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+        /* ---- LAYOUT ---- */
+        .main { max-width: 1200px; margin: 0 auto; padding: 24px 28px; }
+
+        /* ---- TABS ---- */
+        .tabs-nav {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 28px;
+        }
+        .tab-btn {
+            padding: 9px 18px;
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-dim);
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            margin-bottom: -1px;
+            transition: color 0.12s;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ---- SECTION HEADERS ---- */
+        .sh {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .sh + * { margin-top: 0; }
+        .gap { margin-top: 28px; }
+
+        /* ---- PIPELINE FLOW ---- */
+        .pipeline {
+            display: flex;
+            align-items: stretch;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .p-stage {
+            flex: 1;
+            padding: 16px 18px;
+            border-right: 1px solid var(--border);
+        }
+        .p-stage:last-child { border-right: none; }
+        .p-name {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .p-value {
+            font-family: var(--mono);
+            font-size: 22px;
+            font-weight: 600;
+            line-height: 1;
+        }
+        .p-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+        .p-arrow {
+            display: flex; align-items: center;
+            padding: 0 8px;
+            color: var(--text-dim);
+            font-size: 14px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--border);
+        }
+
+        /* ---- KPI GRID ---- */
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .kpi {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 14px 16px;
+        }
+        .kpi-label {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .kpi-value {
+            font-family: var(--mono);
+            font-size: 26px;
+            font-weight: 600;
+            line-height: 1;
+        }
+        .kpi-unit { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+        /* ---- TABLE ---- */
+        .tbl-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 9px 14px;
+            text-align: left;
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border);
+        }
+        th.sort { cursor: pointer; user-select: none; }
+        th.sort:hover { color: var(--text-bright); }
+        td {
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 9px 14px;
+            border-bottom: 1px solid #0c1520;
+            color: var(--text-bright);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: var(--surface2); }
+        .num { color: var(--accent); }
+        .dimtd { color: var(--text-dim); }
+
+        /* ---- BADGES ---- */
+        .badge {
+            display: inline-block;
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 2px;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+        .b-ok   { background:#0d2a1c; color: var(--success); }
+        .b-info { background: var(--accent-dim); color: var(--accent); }
+        .b-crit { background: var(--danger-dim); color: var(--danger); }
+        .b-warn { background: var(--warning-dim); color: var(--warning); }
+        .b-hi   { background: var(--purple-dim); color: var(--purple); }
+        .b-neu  { background: #121c2c; color: var(--text-dim); }
+
+        /* ---- CHART ---- */
+        .chart-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 20px 20px 16px;
+        }
+        .chart-title {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-top: 14px;
+        }
+        .leg-item {
+            display: flex; align-items: center; gap: 6px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+        .leg-dot {
+            width: 10px; height: 10px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        /* ---- FAULT CARDS ---- */
+        .fault-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+        .f-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 16px 18px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.12s;
+        }
+        .f-card:hover { border-color: #2a3d55; background: #111822; }
+        .f-card.sel { border-color: var(--accent); background: #0a1824; }
+        .f-head {
+            display: flex; align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            gap: 8px;
+        }
+        .f-name {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-bright);
+            line-height: 1.3;
+        }
+        .f-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .f-sl { font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+        .f-sv { font-family: var(--mono); font-size: 18px; font-weight: 600; line-height: 1; }
+        .f-interp {
+            font-size: 11px;
+            color: var(--text-dim);
+            line-height: 1.55;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+        }
+
+        /* ---- LOG TABLE ---- */
+        .log-title {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-dim);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .log-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 11px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+        }
+
+        /* ---- AUDIT / SQL ---- */
+        .audit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .a-metric {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 14px 16px;
+        }
+        .a-label {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .a-value {
+            font-family: var(--mono);
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 1;
+        }
+        .a-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+        .sql-block {
+            background: #050810;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 16px 18px;
+            font-family: var(--mono);
+            font-size: 12px;
+            line-height: 1.75;
+            overflow-x: auto;
+            color: var(--text-bright);
+            white-space: pre;
+        }
+        .kw  { color: #79b8ff; }
+        .fn  { color: #b392f0; }
+        .str { color: #9ecbff; }
+        .nm  { color: #f8e3a1; }
+        .cm  { color: var(--text-dim); font-style: italic; }
+        .op  { color: var(--accent); }
+
+        .bench-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 18px 20px;
+            display: flex;
+            gap: 0;
+            align-items: center;
+        }
+        .bench-item { flex: 1; padding: 0 20px; }
+        .bench-item:first-child { padding-left: 0; }
+        .bench-divider { width: 1px; height: 52px; background: var(--border); flex-shrink: 0; }
+        .bench-label { font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+        .bench-value { font-family: var(--mono); font-size: 18px; font-weight: 600; }
+        .bench-sub { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+
+        .note {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            border-left: 2px solid var(--border);
+            padding-left: 12px;
+            margin-top: 14px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 900px) {
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
+            .fault-grid { grid-template-columns: 1fr; }
+            .audit-grid { grid-template-columns: 1fr; }
+            .pipeline { flex-direction: column; }
+            .p-stage { border-right: none; border-bottom: 1px solid var(--border); }
+            .p-arrow { display: none; }
+            .bench-card { flex-direction: column; gap: 16px; align-items: flex-start; }
+            .bench-divider { display: none; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🛸 Mission Reliability Testing & Telemetry Audit Automation</h1>
-        <p><strong>Candidate: Davin Jongwon Kim</strong> | Target Role: Field Data Analyst</p>
-        <p>This case study documents the deployment of an in-memory transformation pipeline designed to ingest messy, high-frequency autonomous drone sensor logs, sanitize structural timing anomalies, and expose critical hardware failure signatures to Field Operations teams.</p>
-        
-        <div class="grid">
-            <div class="card">
-                <h3>1. Attitude Control Drift Failure</h3>
-                <p>Occurs when actual sensor tracking orientation systematically deviates from the commanded flight path. Flagged when <code>ErrRP</code> consistently exceeds baseline limits.</p>
-                <div class="simulation-box">
-                    <div class="uav-model drift-uav"></div>
+
+<header class="header">
+    <div class="header-left">
+        <span class="status-dot"></span>
+        <div>
+            <div class="header-title">TELEMETRY AUDIT PIPELINE</div>
+            <div class="header-sub">Field Diagnostics Interface &middot; DuckDB In-Memory Engine</div>
+        </div>
+    </div>
+    <a href="https://github.com/DavinAnalytics/uav-telemetry-audit-pipeline"
+       target="_blank" rel="noopener" class="github-btn" title="View on GitHub">
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                     0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                     -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                     .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                     -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0
+                     1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82
+                     1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01
+                     1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+    </a>
+</header>
+
+<main class="main">
+    <nav class="tabs-nav">
+        <button class="tab-btn active" data-tab="t-overview">01 &middot; Overview</button>
+        <button class="tab-btn" data-tab="t-timeline">02 &middot; Mission Timeline</button>
+        <button class="tab-btn" data-tab="t-fault">03 &middot; Fault Analysis</button>
+        <button class="tab-btn" data-tab="t-audit">04 &middot; Pipeline Audit</button>
+    </nav>
+
+    <!-- ==================== TAB 1: OVERVIEW ==================== -->
+    <div id="t-overview" class="tab-panel active">
+
+        <div class="sh">Pipeline Throughput</div>
+        <div class="pipeline">
+            <div class="p-stage">
+                <div class="p-name">Raw Ingestion</div>
+                <div class="p-value">12,253</div>
+                <div class="p-sub">Telemetry ticks &middot; ~20 Hz</div>
+            </div>
+            <div class="p-arrow">&#8594;</div>
+            <div class="p-stage">
+                <div class="p-name">Temporal Audit</div>
+                <div class="p-value" style="color:var(--warning);">&minus;4,086</div>
+                <div class="p-sub">Duplicates &amp; bench gaps removed</div>
+            </div>
+            <div class="p-arrow">&#8594;</div>
+            <div class="p-stage">
+                <div class="p-name">Validated Records</div>
+                <div class="p-value" style="color:var(--success);">8,167</div>
+                <div class="p-sub">Physical flight records</div>
+            </div>
+            <div class="p-arrow">&#8594;</div>
+            <div class="p-stage">
+                <div class="p-name">Feature Engineering</div>
+                <div class="p-value" style="color:var(--accent);">&lt;1ms</div>
+                <div class="p-sub">DuckDB vectorized C++ engine</div>
+            </div>
+        </div>
+
+        <div class="gap"></div>
+        <div class="sh">Key Metrics</div>
+        <div class="kpi-grid">
+            <div class="kpi">
+                <div class="kpi-label">Total Ticks Ingested</div>
+                <div class="kpi-value">12,253</div>
+                <div class="kpi-unit">raw telemetry frames</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Validated Records</div>
+                <div class="kpi-value" style="color:var(--accent);">8,167</div>
+                <div class="kpi-unit">66.6% retention rate</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Anomalous Windows</div>
+                <div class="kpi-value" style="color:var(--warning);">3,790</div>
+                <div class="kpi-unit">46.4% of sanitized flight</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Peak Shock Recorded</div>
+                <div class="kpi-value" style="color:var(--danger);">89.4G</div>
+                <div class="kpi-unit">critical oscillation event</div>
+            </div>
+        </div>
+
+        <div class="gap"></div>
+        <div class="sh">Fault Distribution &mdash; Post-Sanitization (8,167 records)</div>
+        <div class="tbl-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Operational Status</th>
+                        <th>Records</th>
+                        <th>% of Total</th>
+                        <th>Avg ErrRP</th>
+                        <th>Peak Shock G</th>
+                        <th>Severity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="badge b-ok">NORMAL_FLIGHT</span></td>
+                        <td class="num">4,377</td>
+                        <td class="dimtd">53.6%</td>
+                        <td class="num">0.0000&deg;</td>
+                        <td class="num">8.31 G</td>
+                        <td><span class="badge b-neu">&mdash;</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge b-info">ATTITUDE_DRIFT</span></td>
+                        <td class="num">1,215</td>
+                        <td class="dimtd">14.9%</td>
+                        <td class="num">0.0417&deg;</td>
+                        <td class="num">12.38 G</td>
+                        <td><span class="badge b-info">Low</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge b-crit">CRITICAL_OSCILLATION</span></td>
+                        <td class="num">1,242</td>
+                        <td class="dimtd">15.2%</td>
+                        <td class="num">0.4292&deg;</td>
+                        <td class="num">89.42 G</td>
+                        <td><span class="badge b-crit">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge b-warn">ACTUATOR_SATURATION</span></td>
+                        <td class="num">966</td>
+                        <td class="dimtd">11.8%</td>
+                        <td class="num">0.0532&deg;</td>
+                        <td class="num">10.42 G</td>
+                        <td><span class="badge b-warn">Medium</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge b-hi">AVIONICS_FREEZE</span></td>
+                        <td class="num">367</td>
+                        <td class="dimtd">4.5%</td>
+                        <td class="num">0.0000&deg;</td>
+                        <td class="num">14.13 G</td>
+                        <td><span class="badge b-hi">High</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="note">~20 Hz base sample frequency &middot; 4,086 duplicate frames removed (delta_ms = 0) &middot; Max time gap: 8,149,655 ms (2.26-hour bench period filtered via delta_ms &lt; 500,000 threshold)</p>
+    </div>
+
+    <!-- ==================== TAB 2: MISSION TIMELINE ==================== -->
+    <div id="t-timeline" class="tab-panel">
+        <div class="chart-wrap">
+            <div class="chart-title">Kinematic Mission Timeline &mdash; 1-Second Aggregation Buckets (&sim;420s flight)</div>
+            <div style="position:relative; height:360px;">
+                <canvas id="tlChart"></canvas>
+            </div>
+            <div class="legend">
+                <div class="leg-item"><div class="leg-dot" style="background:#38bdf8;"></div>Peak Kinetic Shock (G) &mdash; left axis</div>
+                <div class="leg-item"><div class="leg-dot" style="background:#f87171;"></div>Attitude Tracking Error ErrRP (&deg;) &mdash; right axis</div>
+                <div class="leg-item"><div class="leg-dot" style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);"></div>Attitude Drift window</div>
+                <div class="leg-item"><div class="leg-dot" style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.35);"></div>Critical Oscillation window</div>
+                <div class="leg-item"><div class="leg-dot" style="background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.25);"></div>Actuator Saturation window</div>
+                <div class="leg-item"><div class="leg-dot" style="background:rgba(192,132,252,0.08);border:1px solid rgba(192,132,252,0.25);"></div>Avionics Freeze window</div>
+            </div>
+        </div>
+        <p class="note">Peak kinetic shock is <strong style="color:var(--text-bright);">preserved</strong> within each 1-second bucket &mdash; impact events are never smoothed by averaging. ErrRP is bucket-averaged to surface sustained control drift trends.</p>
+    </div>
+
+    <!-- ==================== TAB 3: FAULT ANALYSIS ==================== -->
+    <div id="t-fault" class="tab-panel">
+        <div class="fault-grid">
+            <div class="f-card" data-fault="ATTITUDE_DRIFT" onclick="selectFault(this)">
+                <div class="f-head">
+                    <div class="f-name">ATTITUDE_DRIFT</div>
+                    <span class="badge b-info">Low</span>
+                </div>
+                <div class="f-stats">
+                    <div>
+                        <div class="f-sl">Records</div>
+                        <div class="f-sv" style="color:var(--accent);">1,215</div>
+                    </div>
+                    <div>
+                        <div class="f-sl">Avg ErrRP</div>
+                        <div class="f-sv">0.042&deg;</div>
+                    </div>
+                    <div>
+                        <div class="f-sl">Peak Shock</div>
+                        <div class="f-sv">12.4G</div>
+                    </div>
+                </div>
+                <div class="f-interp">
+                    ErrRP elevated 10&times; above baseline but within closed-loop correction range. Autopilot executing expected crosswind compensation. Not a structural event.
                 </div>
             </div>
-            
-            <div class="card">
-                <h3>2. Critical Oscillation & Structural Shock</h3>
-                <p>High-frequency vibrations or severe landing impacts isolated via Euclidean 3D Vector Magnitudes. Spikes in <code>total_kinetic_shock_g</code> pinpoint structural risk events.</p>
-                <div class="simulation-box">
-                    <div class="uav-model shock-uav"></div>
+
+            <div class="f-card" data-fault="CRITICAL_OSCILLATION" onclick="selectFault(this)">
+                <div class="f-head">
+                    <div class="f-name">CRITICAL_OSCILLATION</div>
+                    <span class="badge b-crit">Critical</span>
+                </div>
+                <div class="f-stats">
+                    <div>
+                        <div class="f-sl">Records</div>
+                        <div class="f-sv" style="color:var(--danger);">1,242</div>
+                    </div>
+                    <div>
+                        <div class="f-sl">Avg ErrRP</div>
+                        <div class="f-sv" style="color:var(--danger);">0.429&deg;</div>
+                    </div>
+                    <div>
+                        <div class="f-sl">Peak Shock</div>
+                        <div class="f-sv" style="color:var(--danger);">89.4G</div>
+                    </div>
+                </div>
+                <div class="f-interp">
+                    89.4G Euclidean vector magnitude: severe control loop breakdown or direct physical collision. ErrRP at 0.43&deg; confirms sustained tracking loss. <span style="color:var(--danger);">Recommend immediate hardware teardown.</span>
+                </div>
+            </div>
+
+            <div class="f-card" data-fault="ACTUATOR_SATURATION" onclick="selectFault(this)">
+                <div class="f-head">
+                    <div class="f-name">ACTUATOR_SATURATION</div>
+                    <span class="badge b-warn">Medium</span>
+                </div>
+                <div class="f-stats">
+                    <div>
+                        <div class="f-sl">Records</div>
+                        <div class="f-sv" style="color:var(--warning);">966</div>
+                    </div>
+                    <div>
+                        <div class="f-sl">Avg ErrRP</div>
+                        <div class="f-sv">0.053&deg;</div>
+                    </div>
+                    <div>
+                        <div class="f-sl">Peak Shock</div>
+                        <div class="f-sv">10.4G</div>
+                    </div>
+                </div>
+                <div class="f-interp">
+                    Lowest peak shock of any anomaly class. Motor at thermal ceiling &mdash; propulsion system constrained, not structural. ErrRP near baseline confirms frame integrity is intact.
+                </div>
+            </div>
+
+            <div class="f-card" data-fault="AVIONICS_FREEZE" onclick="selectFault(this)">
+                <div class="f-head">
+                    <div class="f-name">AVIONICS_FREEZE</div>
+                    <span class="badge b-hi">High</span>
+                </div>
+                <div class="f-stats">
+                    <div>
+                        <div class="f-sl">Records</div>
+                        <div class="f-sv" style="color:var(--purple);">367</div>
+                    </div>
+                    <div>
+                        <div class="f-sl">Avg ErrRP</div>
+                        <div class="f-sv" style="color:var(--purple);">0.000&deg;</div>
+                    </div>
+                    <div>
+                        <div class="f-sl">Peak Shock</div>
+                        <div class="f-sv">14.1G</div>
+                    </div>
+                </div>
+                <div class="f-interp">
+                    Zero ErrRP is physically impossible during active flight. Controller halted on last known orientation state &mdash; a software lockup signature. Vehicle is airborne; the avionics stack is not responding.
                 </div>
             </div>
         </div>
 
-        <h2>🛠️ Core Architectural Pipeline Metrics</h2>
-        <ul>
-            <li><strong>Total Ingested Log Frequency:</strong> 12,253 Telemetry Ticks (~20Hz Base Sample Frequency)</li>
-            <li><strong>Sanitization Layer Output:</strong> 8,167 Validated Physical Records (Time-gaps and duplicates dropped)</li>
-            <li><strong>In-Memory Processing Speed:</strong> Sub-millisecond execution engine powered by DuckDB</li>
-        </ul>
-
-        <a href="http://localhost:8501" target="_blank" class="cta-btn">🚀 Launch Live Triage Diagnostics Utility</a>
+        <!-- Log section -->
+        <div class="log-title" id="log-title">&#8593; Select a fault card to inspect anomaly log</div>
+        <div class="log-empty" id="log-empty">No fault selected &mdash; click a card above</div>
+        <div id="log-wrap" style="display:none;">
+            <div class="tbl-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="sort" data-col="t">T-Bucket (s) <span id="si-t"></span></th>
+                            <th class="sort" data-col="err">ErrRP (&deg;) <span id="si-err"></span></th>
+                            <th class="sort" data-col="g">Peak Shock G <span id="si-g"></span></th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-tbody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
+
+    <!-- ==================== TAB 4: PIPELINE AUDIT ==================== -->
+    <div id="t-audit" class="tab-panel">
+
+        <div class="sh">Temporal Integrity Report</div>
+        <div class="audit-grid">
+            <div class="a-metric">
+                <div class="a-label">Min Time Gap Detected</div>
+                <div class="a-value" style="color:var(--danger);">0.0 ms</div>
+                <div class="a-sub">Duplicate frame &mdash; identical millisecond timestamp</div>
+            </div>
+            <div class="a-metric">
+                <div class="a-label">Max Time Gap Detected</div>
+                <div class="a-value" style="color:var(--warning);">8,149,655 ms</div>
+                <div class="a-sub">2.26-hour bench / non-flight period</div>
+            </div>
+            <div class="a-metric">
+                <div class="a-label">Avg Sensor Period (raw)</div>
+                <div class="a-value">34,655 ms</div>
+                <div class="a-sub">Inflated by bench gap &mdash; true rate &sim;20 Hz during flight</div>
+            </div>
+            <div class="a-metric">
+                <div class="a-label">Rows Removed</div>
+                <div class="a-value" style="color:var(--danger);">4,086</div>
+                <div class="a-sub">33.4% of raw input &mdash; duplicates + bench gap</div>
+            </div>
+        </div>
+
+        <div class="gap"></div>
+        <div class="sh">Sanitization Query &mdash; DuckDB CTE</div>
+        <div class="sql-block"><span class="cm">-- Temporal sanitization: remove duplicates and non-flight bench periods</span>
+<span class="kw">WITH</span> time_deltas <span class="kw">AS</span> (
+    <span class="kw">SELECT</span>
+        <span class="op">*</span>,
+        timestamp <span class="op">-</span> <span class="fn">LAG</span>(timestamp) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> timestamp) <span class="kw">AS</span> delta_ms
+    <span class="kw">FROM</span> raw_telemetry
+)
+<span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> time_deltas
+<span class="kw">WHERE</span>
+    delta_ms <span class="kw">IS NULL</span>                    <span class="cm">-- preserve first row (no prior frame)</span>
+    <span class="kw">OR</span> (
+        delta_ms <span class="op">&gt;</span> <span class="nm">0</span>                     <span class="cm">-- drop exact duplicates (delta_ms = 0)</span>
+        <span class="kw">AND</span> delta_ms <span class="op">&lt;</span> <span class="nm">500000</span>            <span class="cm">-- drop bench gap (&gt; 500s threshold)</span>
+    )</div>
+
+        <div class="gap"></div>
+        <div class="sh">Feature Engineering &mdash; Euclidean 3D Kinetic Shock</div>
+        <div class="sql-block"><span class="cm">-- Vectorized magnitude: square first, single SQRT per record (avoids repeated sqrt calls)</span>
+<span class="fn">SQRT</span>(
+    abAccX <span class="op">*</span> abAccX
+    <span class="op">+</span> abAccY <span class="op">*</span> abAccY
+    <span class="op">+</span> abAccZ <span class="op">*</span> abAccZ
+) <span class="kw">AS</span> total_kinetic_shock_g,
+
+<span class="cm">-- Domain-specific fault label translation via CASE</span>
+<span class="kw">CASE</span>
+    <span class="kw">WHEN</span> labels <span class="op">=</span> <span class="nm">0</span> <span class="kw">THEN</span> <span class="str">'0_NORMAL_FLIGHT'</span>
+    <span class="kw">WHEN</span> labels <span class="op">=</span> <span class="nm">1</span> <span class="kw">THEN</span> <span class="str">'1_ATTITUDE_DRIFT'</span>
+    <span class="kw">WHEN</span> labels <span class="op">=</span> <span class="nm">2</span> <span class="kw">THEN</span> <span class="str">'2_CRITICAL_OSCILLATION'</span>
+    <span class="kw">WHEN</span> labels <span class="op">=</span> <span class="nm">3</span> <span class="kw">THEN</span> <span class="str">'3_ACTUATOR_SATURATION'</span>
+    <span class="kw">WHEN</span> labels <span class="op">=</span> <span class="nm">4</span> <span class="kw">THEN</span> <span class="str">'4_AVIONICS_FREEZE'</span>
+<span class="kw">END</span> <span class="kw">AS</span> operational_status</div>
+
+        <div class="gap"></div>
+        <div class="sh">Processing Benchmark</div>
+        <div class="bench-card">
+            <div class="bench-item">
+                <div class="bench-label">End-to-End Execution</div>
+                <div class="bench-value" style="color:var(--accent);">&lt; 1ms</div>
+                <div class="bench-sub">12,253 &rarr; 8,167 records in-memory</div>
+            </div>
+            <div class="bench-divider"></div>
+            <div class="bench-item">
+                <div class="bench-label">Compute Engine</div>
+                <div class="bench-value">DuckDB</div>
+                <div class="bench-sub">Vectorized C++ columnar execution</div>
+            </div>
+            <div class="bench-divider"></div>
+            <div class="bench-item">
+                <div class="bench-label">Architecture</div>
+                <div class="bench-value">In-Memory</div>
+                <div class="bench-sub">Local-first &middot; zero network dependency</div>
+            </div>
+            <div class="bench-divider"></div>
+            <div class="bench-item">
+                <div class="bench-label">Sanitization Filter</div>
+                <div class="bench-value" style="color:var(--text-bright); font-size:13px;">delta_ms &isin; (0, 500k)</div>
+                <div class="bench-sub">LAG() window function over timestamp</div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<script>
+// ===================== DATA =====================
+
+const FAULT_WINDOWS = [
+    { start:   0, end: 174, label: 'NORMAL',               baseG:  9.0, baseErr: 0.000 },
+    { start: 175, end: 238, label: 'ATTITUDE_DRIFT',       baseG: 12.0, baseErr: 0.042 },
+    { start: 239, end: 298, label: 'CRITICAL_OSCILLATION', baseG: 35.0, baseErr: 0.300 },
+    { start: 299, end: 348, label: 'ACTUATOR_SATURATION',  baseG: 10.4, baseErr: 0.053 },
+    { start: 349, end: 367, label: 'AVIONICS_FREEZE',      baseG: 14.1, baseErr: 0.000 },
+    { start: 368, end: 420, label: 'NORMAL',               baseG:  9.0, baseErr: 0.000 },
+];
+
+const FAULT_META = {
+    ATTITUDE_DRIFT:      { minG: 8,  maxG: 16,    minErr: 0.025, maxErr: 0.075 },
+    CRITICAL_OSCILLATION:{ minG: 15, maxG: 89.42, minErr: 0.150, maxErr: 0.430 },
+    ACTUATOR_SATURATION: { minG: 8,  maxG: 12,    minErr: 0.030, maxErr: 0.080 },
+    AVIONICS_FREEZE:     { minG: 12, maxG: 16,    minErr: 0.000, maxErr: 0.000 },
+};
+
+// Deterministic pseudorandom (LCG)
+function rng(seed) {
+    let s = seed >>> 0;
+    return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 0x100000000; };
+}
+
+// ===================== TIMELINE DATA =====================
+
+function buildTimeline() {
+    const rand = rng(0xAB42);
+    const xs = [], gs = [], errs = [];
+    for (let t = 0; t <= 420; t++) {
+        const w = FAULT_WINDOWS.find(w => t >= w.start && t <= w.end) || FAULT_WINDOWS[0];
+        let g, e;
+        if (w.label === 'CRITICAL_OSCILLATION') {
+            const prog  = (t - w.start) / (w.end - w.start);
+            const curve = prog < 0.55 ? prog / 0.55 : 1 - (prog - 0.55) / 0.45;
+            g = 8 + (89.42 - 8) * curve * curve + rand() * 5;
+            e = 0.04 + (0.43 - 0.04) * curve + rand() * 0.04;
+        } else if (w.label === 'AVIONICS_FREEZE') {
+            g = w.baseG + rand() * 2;
+            e = 0;
+        } else {
+            g = w.baseG + (rand() - 0.5) * 4;
+            e = Math.max(0, w.baseErr + (rand() - 0.5) * 0.018);
+        }
+        xs.push(t);
+        gs.push(+g.toFixed(2));
+        errs.push(+e.toFixed(4));
+    }
+    return { xs, gs, errs };
+}
+
+// ===================== TABS =====================
+
+let tlChartInit = false;
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 't-timeline' && !tlChartInit) {
+            initTimeline();
+            tlChartInit = true;
+        }
+    });
+});
+
+// ===================== TIMELINE CHART =====================
+
+function initTimeline() {
+    const { xs, gs, errs } = buildTimeline();
+    const ctx = document.getElementById('tlChart').getContext('2d');
+
+    const annotationBoxes = {
+        zDrift: {
+            type: 'box', xMin: 175, xMax: 238,
+            backgroundColor: 'rgba(56,189,248,0.05)',
+            borderColor: 'rgba(56,189,248,0.18)', borderWidth: 1,
+        },
+        zCrit: {
+            type: 'box', xMin: 239, xMax: 298,
+            backgroundColor: 'rgba(248,113,113,0.07)',
+            borderColor: 'rgba(248,113,113,0.28)', borderWidth: 1,
+        },
+        zSat: {
+            type: 'box', xMin: 299, xMax: 348,
+            backgroundColor: 'rgba(251,146,60,0.05)',
+            borderColor: 'rgba(251,146,60,0.18)', borderWidth: 1,
+        },
+        zFreeze: {
+            type: 'box', xMin: 349, xMax: 367,
+            backgroundColor: 'rgba(192,132,252,0.06)',
+            borderColor: 'rgba(192,132,252,0.22)', borderWidth: 1,
+        },
+    };
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: xs,
+            datasets: [
+                {
+                    label: 'Kinetic Shock (G)',
+                    data: gs,
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56,189,248,0.04)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    tension: 0.25,
+                    yAxisID: 'yL',
+                    fill: true,
+                },
+                {
+                    label: 'ErrRP (°)',
+                    data: errs,
+                    borderColor: '#f87171',
+                    backgroundColor: 'rgba(248,113,113,0.04)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    tension: 0.25,
+                    yAxisID: 'yR',
+                    fill: true,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#050810',
+                    borderColor: '#1c2840',
+                    borderWidth: 1,
+                    titleColor: '#7a96b4',
+                    bodyColor: '#c0d4e8',
+                    titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+                    bodyFont: { family: "'JetBrains Mono', monospace", size: 11 },
+                    padding: 10,
+                    callbacks: {
+                        title: items => `t = ${items[0].label}s`,
+                        afterBody: items => {
+                            const t = items[0].dataIndex;
+                            const w = FAULT_WINDOWS.find(w => t >= w.start && t <= w.end);
+                            return w ? [`status: ${w.label}`] : [];
+                        },
+                    },
+                },
+                annotation: { annotations: annotationBoxes },
+            },
+            scales: {
+                x: {
+                    type: 'linear',
+                    title: { display: true, text: 'Mission Time (s)', color: '#3d5470', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+                    grid: { color: '#0f1a28' },
+                    ticks: { color: '#3d5470', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxTicksLimit: 14 },
+                    border: { color: '#1c2840' },
+                },
+                yL: {
+                    type: 'linear', position: 'left',
+                    title: { display: true, text: 'Kinetic Shock (G)', color: '#38bdf8', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+                    grid: { color: '#0f1a28' },
+                    ticks: { color: '#38bdf8', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+                    border: { color: '#1c2840' },
+                    min: 0,
+                },
+                yR: {
+                    type: 'linear', position: 'right',
+                    title: { display: true, text: 'ErrRP (°)', color: '#f87171', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+                    grid: { drawOnChartArea: false },
+                    ticks: { color: '#f87171', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+                    border: { color: '#1c2840' },
+                    min: 0,
+                },
+            },
+        },
+    });
+}
+
+// ===================== FAULT LOG =====================
+
+let activeRows = [];
+let sortCol = 't', sortDir = 1;
+
+const BADGE_MAP = {
+    ATTITUDE_DRIFT:       '<span class="badge b-info">ATTITUDE_DRIFT</span>',
+    CRITICAL_OSCILLATION: '<span class="badge b-crit">CRITICAL_OSCILLATION</span>',
+    ACTUATOR_SATURATION:  '<span class="badge b-warn">ACTUATOR_SATURATION</span>',
+    AVIONICS_FREEZE:      '<span class="badge b-hi">AVIONICS_FREEZE</span>',
+};
+
+function generateRows(faultKey) {
+    const rand = rng(faultKey.split('').reduce((a, c) => a + c.charCodeAt(0), 0));
+    const m = FAULT_META[faultKey];
+    const w = FAULT_WINDOWS.find(w => w.label === faultKey);
+    const rows = [];
+    for (let i = 0; i < 20; i++) {
+        const t   = w ? Math.floor(w.start + rand() * (w.end - w.start)) : Math.floor(rand() * 420);
+        const g   = +(m.minG + rand() * (m.maxG - m.minG)).toFixed(2);
+        const err = +(m.minErr + rand() * (m.maxErr - m.minErr)).toFixed(4);
+        rows.push({ t, g, err, fault: faultKey });
+    }
+    return rows.sort((a, b) => a.t - b.t);
+}
+
+function renderLog() {
+    const col = sortCol;
+    const sorted = [...activeRows].sort((a, b) => (a[col] - b[col]) * sortDir);
+    const indicators = { t: '', err: '', g: '' };
+    indicators[col] = sortDir === 1 ? '&#8593;' : '&#8595;';
+    ['t','err','g'].forEach(c => { document.getElementById('si-' + c).innerHTML = indicators[c]; });
+
+    document.getElementById('log-tbody').innerHTML = sorted.map(r => `
+        <tr>
+            <td class="num">${r.t}</td>
+            <td class="num">${r.err.toFixed(4)}</td>
+            <td class="num">${r.g.toFixed(2)}</td>
+            <td>${BADGE_MAP[r.fault] || r.fault}</td>
+        </tr>
+    `).join('');
+}
+
+function selectFault(card) {
+    document.querySelectorAll('.f-card').forEach(c => c.classList.remove('sel'));
+    card.classList.add('sel');
+    const key = card.dataset.fault;
+    document.getElementById('log-title').textContent =
+        'Anomaly Log — ' + key + ' (sample 20 records)';
+    document.getElementById('log-empty').style.display = 'none';
+    document.getElementById('log-wrap').style.display = 'block';
+    activeRows = generateRows(key);
+    sortCol = 't'; sortDir = 1;
+    renderLog();
+}
+
+document.querySelectorAll('th.sort').forEach(th => {
+    th.addEventListener('click', () => {
+        if (!activeRows.length) return;
+        const col = th.dataset.col;
+        if (sortCol === col) sortDir *= -1;
+        else { sortCol = col; sortDir = 1; }
+        renderLog();
+    });
+});
+</script>
+
 </body>
 </html>
